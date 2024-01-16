@@ -1,0 +1,6 @@
+ryu
+pypacker
+kytos
+eventlet==0.30.2
+networkx
+mininet

@@ -1,0 +1,349 @@
+% echo report.tex | entr -s 'latex report && dot -Teps topo.dot >topo.eps && gnuplot report.gp && bibtex report && latex -interaction=batchmode report && dvips -q report && gs -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile=report.pdf report.ps'
+\documentclass[twocolumn]{article}
+
+\usepackage{graphics}
+
+\author{Diego Bellani}
+\date{2022}
+\title{Report of Project 5\protect\\ for\protect\\ Computer Network Performance}
+
+\pagenumbering{gobble}
+
+\begin{filecontents}[nosearch,overwrite,noheader]{topo.dot}
+graph {
+	rankdir = BT;
+	{
+		node [shape = plaintext];
+		h1 [label=<h<SUB>1</SUB>>];
+		h2 [label=<h<SUB>2</SUB>>];
+		h3 [label=<h<SUB>3</SUB>>];
+		hm [label=<h<SUB>m</SUB>>]
+	}
+	A -- B -- C -- A;
+	// B -- D;
+	h1 -- A;
+	h2 -- B;
+	// D -- h3;
+	h3 -- C;
+	hm -- A;
+	h3 -- D -- B [style=dashed];
+	{rank = same; A; B; hm}
+	{rank = same; h1; h2}
+	{rank = same; C; D}
+	{rank = max; h3}
+}
+\end{filecontents}
+
+\begin{filecontents}[nosearch,overwrite,noheader]{report.gp}
+################################################################################
+set terminal eps
+set output 'h1.eps'
+set yrange[0:0.08]
+set ylabel 'end-to-end delay (ms)'
+set xlabel 'Time (s)'
+set key left
+
+stats 'h1.txt' using ($2 > 2 ? 0 : $2/2) nooutput
+f(x) = m*x + b
+fit f(x) 'h1.txt' using 0:($2 > 2 ? STATS_mean : $2/2) via m,b
+
+plot 'h1.txt' using ($2/2) with linespoint linewidth 3 pointtype 7 title 'F1', \
+	f(x) title 'Best fit' linewidth 3
+################################################################################
+reset
+set terminal eps
+set output 'h2.eps'
+set yrange[0:0.12]
+set ylabel 'end-to-end delay (ms)'
+set xlabel 'Time (s)'
+set key left
+
+stats 'h2.txt' using ($2 > 2 ? 0 : $2/2) nooutput
+f(x) = m*x + b
+fit f(x) 'h2.txt' using 0:($2 > 2 ? STATS_mean : $2/2) via m,b
+
+plot 'h2.txt' using ($2/2) with linespoint linewidth 3 pointtype 7 title 'F2', \
+	f(x) title 'Best fit' linewidth 3
+################################################################################
+reset
+set terminal eps
+set output 'controller.eps'
+set yrange[0:0.0012]
+set ylabel 'Utilization'
+set xlabel 'Time (s)'
+set key left
+
+stats 'controller.txt' using 4 nooutput
+
+array names[STATS_blocks]
+names[1] = "s1 h1"
+names[2] = "s1 h4"
+names[3] = "s1 s2"
+names[4] = "s1 s3"
+names[5] = "s2 h2"
+names[6] = "s2 s1"
+names[7] = "s2 s3"
+names[8] = "s2 s4"
+names[9] = "s3 h3"
+names[10] = "s3 s1"
+names[11] = "s3 s2"
+names[12] = "s4 s2"
+# FIXME: Why this gives me a warning?
+plot for [k=1:STATS_blocks] 'controller.txt' index k using 4 title names[k] \
+	with linespoint pointsize 0.7
+\end{filecontents}
+
+\begin{filecontents}[nosearch,overwrite,noheader]{report.bib}
+@inproceedings {
+	mininet,
+	author = {Lantz, Bob and Heller, Brandon and McKeown, Nick},
+	title = {A Network in a Laptop: Rapid Prototyping for Software-Defined Networks},
+	year = {2010},
+	isbn = {9781450304092},
+	publisher = {Association for Computing Machinery},
+	address = {New York, NY, USA},
+	url = {https://doi.org/10.1145/1868447.1868466},
+	doi = {10.1145/1868447.1868466},
+	booktitle = {Proceedings of the 9th ACM SIGCOMM Workshop on Hot Topics in Networks},
+	articleno = {19},
+	numpages = {6},
+	keywords = {emulation, open-flow, rapid prototyping, virtualization, software defined networking},
+	location = {Monterey, California},
+	series = {Hotnets-IX}
+}
+@article {
+	openflow,
+	author = {McKeown, Nick and Anderson, Tom and Balakrishnan, Hari and Parulkar, Guru and Peterson, Larry and Rexford, Jennifer and Shenker, Scott and Turner, Jonathan},
+	title = {OpenFlow: Enabling Innovation in Campus Networks},
+	year = {2008},
+	issue_date = {April 2008},
+	publisher = {Association for Computing Machinery},
+	address = {New York, NY, USA},
+	volume = {38},
+	number = {2},
+	issn = {0146-4833},
+	url = {https://doi.org/10.1145/1355734.1355746},
+	doi = {10.1145/1355734.1355746},
+	journal = {SIGCOMM Comput. Commun. Rev.},
+	month = {mar},
+	pages = {69–74},
+	numpages = {6},
+	keywords = {virtualization, ethernet switch, flow-based}
+}
+@book {
+	ryu,
+	author = {RYU project team},
+	title = {RYU SDN Framework},
+	publisher = {Web},
+	year = {2014},
+	pages = {286},
+	month = {feb}
+}
+@inproceedings{
+	openvswitch,
+	title={Extending networking into the virtualization layer.},
+	author={Pfaff, Ben and Pettit, Justin and Amidon, Keith and Casado, Martin and Koponen, Teemu and Shenker, Scott},
+	booktitle={Hotnets},
+	year={2009}
+}
+@inproceedings {
+	sdn-bandwidth,
+	author = {Megyesi, P\'{e}ter and Botta, Alessio and Aceto, Giuseppe and Pescap\`{e}, Antonio and Moln\'{a}r, S\'{a}ndor},
+	title = {Available Bandwidth Measurement in Software Defined Networks},
+	year = {2016},
+	isbn = {9781450337397},
+	publisher = {Association for Computing Machinery},
+	address = {New York, NY, USA},
+	url = {https://doi.org/10.1145/2851613.2851727},
+	doi = {10.1145/2851613.2851727},
+	booktitle = {Proceedings of the 31st Annual ACM Symposium on Applied Computing},
+	pages = {651–657},
+	numpages = {7},
+	keywords = {floodlight, software defined networks, mininet, available bandwidth, OpenFlow, network operating system}, location = {Pisa, Italy},
+	series = {SAC '16}
+}
+\end{filecontents}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This project consisted in simulating an attack on a particular network topology
+and reacting to it (via SDN). We were also required to take measurements of the
+utilization of all links and the end-to-end delay of all legitimate flows for
+the entire duration of the experiment.
+\end{abstract}
+
+\section{Project}
+We were given the network topology shown in figure~\ref{fig:topo}. The nodes
+$h_1$, $h_2$, $h_3$ and $h_m$ are the hosts, the nodes $A$, $B$, $C$ and $D$ are
+the switches, the solid lines represent the links and the dashed lines the links
+which can be dynamically provisioned.
+
+The only requirement for this network was that the bandwidth of the link between
+$A$ and $C$ had to be higher than one of the link between $B$ and $C$.
+
+The way in which the attack was performed and the way in which we had to react
+to it was as follows.
+%
+\begin{description}
+\item{Time $t_0$} $h_1$ and $h_2$ send two traffic flows, $F1$ and $F2$
+respectively, to $h_3$. Due to the bandwidth limitation stated above the
+controller chooses path $AC$ for $F1$ and $BAC$ for $F2$.
+\item{Time $t_1$} $h_m$\footnote{$h_m$ is always considered as a malicious host,
+all of its flows are not legitimate.} sends a traffic flow $F3$ to $h_1$ to
+pollute the flow table of A.
+\item{Time $t_2$} as a consequence the controller redirects $F2$ from $BAC$ to
+$BC$.
+\item{Time $t_3$} $h_m$ sends traffic flow $F4$ to $h_3$ to pollute the flow
+table of C (this is in addition to $F3$).
+\item{Time $t_4$} as a consequence the controller asks for a new path to connect
+$h_2$ and $h_3$ i.e. $BD$.
+\end{description}
+
+In addition to simulating this scenario we also have to measure the utilization
+of all links and the end-to-end of all legitimate flows delay for the entire
+duration of the experiment.
+
+\begin{figure}
+\centering
+\resizebox{.5\columnwidth}{!}{\includegraphics{topo}}
+\caption{Network topology used for the project.}
+\label{fig:topo}
+\end{figure}
+
+\section{Implementation}
+To create the network topology we had to use Mininet~\cite{mininet}. Open
+vSwitch~\cite{openvswitch} was used as the implementation of the virtual switch
+in the network. OpenFlow\footnote{In particular we used version 1.0 of this
+protocol due to its simplicity with respect to the newer
+versions.}~\cite{openflow} was the protocol used for SDN and finally
+Ryu~\cite{ryu} was the framework used to implement the controller.
+
+The bandwidth limits on the various links were set through Mininet using Linux's
+traffic control (\texttt{tc(8)}) capabilities.
+
+To generate the traffic flows of $h_1$ and $h_2$ \texttt{ping(1)} was
+used which conveniently gave us the roundtrip delay, which was used to derive
+the end-to-end delay.
+
+\subsection{Measuring Utilization}
+Measuring the utilization of all the link proved to be more challenging than we
+were expecting but with a bit of ingenuity we managed to do it.
+
+OpenFlow doesn't provide any way to get the the bandwidth of a port. The closest
+thing that it provides is a way to ask for the features of a port, among which
+there it its supported rate (e.g. 10 Megabit/s full-duplex). Saddly because we
+were using a virtual switch this advertised rates don't make sense in this
+context. In fact measuring the bandwidth whith \texttt{iperf(1)} gave us a
+bandwith of 45 Gigabit/s which is much higher than what the switch said to
+support: 10 Gigabit/s.
+
+Using \texttt{iperf(1)} during the experiment was not possible because it
+interfered to much with the legitimate traffic in the network altering the
+measurements.
+
+To be able to measure the utilization of a link in a given time interval we need
+two numbers: the total bandwidth of that link and how many bytes were
+transmitted in that time interval. We can easly get the second one thanks to
+OpenFlow's \texttt{OFPST\_PORT} request, which gives to the controller some
+statistics about the ports of a switch. For the second one we decided to assume,
+as in another paper~\cite{sdn-bandwidth}, that the total bandwidth of all links
+was known to the controller at all times.
+
+\subsection{Simulating the Attack}
+To simulate the attack, and respect all the routing requirements at the same
+time, we decided to create a routing algorithm that used the current utilization
+of a link a the cost of that edge for the shortest-path algorithm. To simulate
+the attack we simply lowered the available bandwidth of the links in such a way
+that the controller was forced to use the path described above for $F1$ and
+$F2$.
+
+The bandwidth for the links between the switches is reported in
+table~\ref{tab:band}. The bandwidth for the links between hosts and switches is
+always 1 Gigabit/s since it doesn't matter for the correct routing and the
+attack purposes.
+
+\begin{table}
+\centering
+\begin{tabular}{c|cccc}
+      & $AB$ & $BC$ & $CA$ & $BD$\\
+\hline
+$t_0$ & 10   & 4    & 10   & -\\
+$t_1$ & 1    & 4    & 10   & -\\
+$t_2$ & 1    & 4    & 10   & -\\
+$t_3$ & 1    & 1    & 10   & -\\
+$t_4$ & 1    & 1    & 10   & 10
+\end{tabular}
+\caption{Table reporting the bandwidth of the links between the switches at all
+times of the experiment reported in Megabit/s.}
+\label{tab:band}
+\end{table}
+
+\section{Results}
+The graph for end-to-end delay of flow $F1$ and $F2$ can be seen in
+figures~\ref{fig:f1} and~\ref{fig:f2} respectively.
+
+As we can see the the average end-to-end delay slowly increases over time as the
+best fit line (linear regression) shows. This is as expected given the fact that
+the network is under attack, but the measures taken by the controller seem to
+handle this well enough.
+
+The points not shown are not outliers but the times at which a
+\texttt{OFPT\_PACKET\_IN} requests are sent to the controller from the switches,
+because the flow tables are set to expire after 10 seconds. This points are also
+substituted in the linear regression calculation with the average of all the
+other data points, since we are interested in the best fit of this other points.
+
+The attacks are performed at time $t_1$ and $t_3$ which is around 11 and 22
+seconds after the start of the experiment respectively. Dinamic provisioning
+happens at $t_4$ which is at the 33rd seconds on the graph. All of this phases
+of the experiment can be clearly seen in figure~\ref{fig:f2}.
+
+The end-to-end delay goes from being mostly below the best fit line, in the
+seconds from 0 to 22, to then being above the best fit line and again, at time
+33, well below that line.
+
+All the end-to-end delays reported (when the flow tables are installed) are all
+sub-millisecond. This is expected given the way in which we sumulated the attack
+and given the fact that the entire network is simulated in software.
+
+To conclude our analysis of the results of the experiment, we take a look at the
+graph of the utilization of the various links, show in
+figure~\ref{fig:utilization}. The graph is fairly busy but if we take as an
+example the link between $A$ and $B$ (in the graph reported as \textsf{s2} and
+\textsf{s1}) we can see a clear increase in utilization around time 25 as a
+consequence of the attack at time $t_3$ (second 22). We can see the same spike
+at time 25 in the other 2 graphs.
+
+Again the utilization is always very low. This is because we used
+\texttt{ping(1)} to generate traffic in the network which in the worst case has
+a 1 Megabit/s bandwidth, which is more than enough to handle that traffic.
+
+\newpage
+
+\begin{figure}
+\resizebox{\columnwidth}{!}{\includegraphics{h1}}
+\caption{Graph of the end delay over time of $F1$.}
+\label{fig:f1}
+\end{figure}
+
+\begin{figure}
+\resizebox{\columnwidth}{!}{\includegraphics{h2}}
+\caption{Graph of the end delay over time of $F2$.}
+\label{fig:f2}
+\end{figure}
+
+\begin{figure}
+\resizebox{\columnwidth}{!}{\rotatebox{0}{\includegraphics{controller}}}
+\caption{Graph of the utilization of all links in the network.}
+\label{fig:utilization}
+\end{figure}
+
+\clearpage
+
+\bibliographystyle{plain}
+\bibliography{report}
+
+\end{document}
